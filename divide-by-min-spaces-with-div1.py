@@ -1,3 +1,5 @@
+import time
+
 def generate_all_products(max_product=800, include_overflow=True):
     """
     Generate all possible products from {10,4,3,2} up to max_product
@@ -5,7 +7,7 @@ def generate_all_products(max_product=800, include_overflow=True):
     - Max 2 tens, then can add other numbers (up to 4 total)
     - Max 3 fours, then can add other numbers (up to 4 total)
     - Max 3 threes, then can add other numbers (up to 4 total)  
-    - Max 4 twos (up to 4 total)
+    - Max 4 twos (up to 4 total)1
     - ABSOLUTE MAX 4 numbers per group (including overflow)
     
     With overflow: extra numbers beyond limits act as *1 (cost 1 space each)
@@ -144,6 +146,9 @@ def find_best_decomposition(target):
     Format: ((groups) + 1) * outside_multiplier + outside_addition
     Or: ((groups)) * outside_multiplier + outside_addition (if single group with overflow)
     """
+
+    start_time = time.time()
+
     products = generate_all_products()
     
     best_result = None
@@ -186,10 +191,15 @@ def find_best_decomposition(target):
                     if spaces < best_spaces:
                         best_spaces = spaces
                         best_result = (main_groups, outside_mult, outside_add, False)
-    
+
+    end_time = time.time()
+    print(f"Time taken for decomposition: {end_time - start_time} seconds")
+
     return best_result, best_spaces if best_result else (None, None)
 
 def format_output(main_groups, outside_multiplier, outside_addition, skip_plus_one):
+
+    
     """Format the result as a string"""
     group_strs = []
     for combo, overflow in main_groups:
@@ -249,4 +259,20 @@ if result:
     main_groups, outside_mult, outside_add, skip_plus_one = result
     output = format_output(main_groups, outside_mult, outside_add, skip_plus_one)
     print(f"517: {output}")
+    print(f"Total spaces used: {spaces}")
+
+print("\nTest with 2:")
+result, spaces = find_best_decomposition(2)
+if result:
+    main_groups, outside_mult, outside_add, skip_plus_one = result
+    output = format_output(main_groups, outside_mult, outside_add, skip_plus_one)
+    print(f"2: {output}")
+    print(f"Total spaces used: {spaces}")
+
+print("\nTest with 8:")
+result, spaces = find_best_decomposition(8)
+if result:
+    main_groups, outside_mult, outside_add, skip_plus_one = result
+    output = format_output(main_groups, outside_mult, outside_add, skip_plus_one)
+    print(f"8: {output}")
     print(f"Total spaces used: {spaces}")
