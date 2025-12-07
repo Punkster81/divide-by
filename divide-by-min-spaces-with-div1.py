@@ -1,67 +1,150 @@
-import time
-
 def generate_all_products(max_product=800, include_overflow=True):
     """
     Generate all possible products from {10,4,3,2} up to max_product
-    Constraints:
-    - Max 2 tens, then can add other numbers (up to 4 total)
-    - Max 3 fours, then can add other numbers (up to 4 total)
-    - Max 3 threes, then can add other numbers (up to 4 total)  
-    - Max 4 twos (up to 4 total)1
-    - ABSOLUTE MAX 4 numbers per group (including overflow)
     
-    With overflow: extra numbers beyond limits act as *1 (cost 1 space each)
+    Two types of combinations:
+    1. Normal: Follow hierarchy (max 2 tens, 3 fours, 3 threes, 4 twos)
+    2. Overflow: Intentionally place numbers to cause overflow (*1 effect)
+       - Can place 10/4/3 in positions where they overflow
+       - Examples: (4,2,10), (3,3,10), (4,4,10), (10,10,4,10)
     """
     products = {}
     
-    max_overflow = 2 if include_overflow else 0  # Allow up to 2 overflow numbers
-    
-    for count_10 in range(3 + max_overflow):
-        for count_4 in range(4 + max_overflow):
-            for count_3 in range(4 + max_overflow):
-                for count_2 in range(5):  # Max 4 twos total (can't overflow since group size is 4)
-                    combo = [10]*count_10 + [4]*count_4 + [3]*count_3 + [2]*count_2
-                    
-                    if not combo:
-                        continue
-                    
-                    # ABSOLUTE MAX: 4 numbers total in a group
-                    if len(combo) > 4:
-                        continue
-                    
-                    # Calculate overflow
-                    overflow_10 = max(0, count_10 - 2)
-                    overflow_4 = max(0, count_4 - 3)
-                    overflow_3 = max(0, count_3 - 3)
-                    overflow_2 = max(0, count_2 - 4)
-                    total_overflow = overflow_10 + overflow_4 + overflow_3 + overflow_2
-                    
-                    # Limit total overflow
-                    if total_overflow > max_overflow:
-                        continue
-                    
-                    # Calculate actual product
-                    product = 1
-                    product *= (10 ** min(count_10, 2))
-                    product *= (4 ** min(count_4, 3))
-                    product *= (3 ** min(count_3, 3))
-                    product *= (2 ** min(count_2, 4))
-                    # Overflow numbers multiply by 1 (don't change product)
-                    
-                    if product > max_product:
-                        continue
-                    
-                    # Store with overflow info
-                    if product not in products:
-                        products[product] = []
-                    products[product].append((combo, total_overflow))
+    # Generate all possible 1-4 number combinations
+    for length in range(1, 5):  # 1 to 4 numbers
+        generate_combos_recursive([], length, products, max_product)
     
     return products
+
+def generate_combos_recursive(current, remaining, products, max_product):
+    """Recursively generate all valid combinations in descending order"""
+    if remaining == 0:
+        if not current:
+            return
+        
+        # Calculate product and check for overflow
+        combo = current[:]
+        product, has_overflow = calculate_product_with_overflow(combo)
+        
+        if product > max_product:
+            return
+        
+        if product not in products:
+            products[product] = []
+        
+        # Store as tuple: (combo, overflow_count)
+        overflow_count = 1 if has_overflow else 0
+        products[product].append((combo, overflow_count))
+        return
+    
+    # Determine what numbers we can add (must be <= last number to maintain descending order)
+    if len(current) == 0:
+        allowed = [10, 4, 3, 2]
+    else:
+        last_num = current[-1]
+        allowed = [n for n in [10, 4, 3, 2] if n <= last_num]
+    
+    # Try adding each allowed number
+    for num in allowed:
+        new_combo = current + [num]
+        
+        # Check if this is a valid combination
+        if is_valid_combo(new_combo):
+            generate_combos_recursive(new_combo, remaining - 1, products, max_product)
+
+def is_valid_combo(combo):
+    """Check if a combo is valid (follows hierarchy or is valid overflow)"""
+    if len(combo) > 4:
+        return False
+    
+    count_10 = combo.count(10)
+    count_4 = combo.count(4)
+    count_3 = combo.count(3)
+    count_2 = combo.count(2)
+    
+    # Count how many of each are in "normal" positions (before overflow)
+    # The combo should be in descending order: 10s, then 4s, then 3s, then 2s
+    # But we allow "wrong" placements that cause overflow
+    
+    # Basic limits
+    if count_10 > 3:  # Max 2 normal + 1 overflow
+        return False
+    if count_4 > 4:
+        return False
+    if count_3 > 4:
+        return False
+    if count_2 > 4:
+        return False
+    
+    return True
+
+def calculate_product_with_overflow(combo):
+    """
+    Calculate the actual product considering overflow rules.
+    Returns: (product, has_overflow)
+    
+    Rules:
+    - First 2 tens multiply normally
+    - First 3 fours multiply normally  
+    - First 3 threes multiply normally
+    - First 4 twos multiply normally
+    - Additional numbers multiply by 1 (overflow)
+    - 4th position (index 3): if it's a 10, 4, or 3, it overflows to *1
+    """
+    product = 1
+    has_overflow = False
+    
+    count_10 = combo.count(10)
+    count_4 = combo.count(4)
+    count_3 = combo.count(3)
+    count_2 = combo.count(2)
+    
+    # Check for standard overflow (too many of a number)
+    if count_10 > 2:
+        has_overflow = True
+    if count_4 > 3:
+        has_overflow = True
+    if count_3 > 3:
+        has_overflow = True
+    if count_2 > 4:
+        has_overflow = True
+    
+    # Check for positional overflow
+    # Position 4 (index 3): if it's 10, 4, or 3, it overflows
+    if len(combo) == 4 and combo[3] in [10, 4, 3]:
+        has_overflow = True
+        # This number doesn't contribute to product (it's *1)
+        # Recalculate product without the last number if it overflows
+        product_combo = combo[:3]  # First 3 numbers
+        
+        # Recalculate counts without overflow number
+        count_10 = product_combo.count(10)
+        count_4 = product_combo.count(4)
+        count_3 = product_combo.count(3)
+        count_2 = product_combo.count(2)
+        
+        product *= (10 ** min(count_10, 2))
+        product *= (4 ** min(count_4, 3))
+        product *= (3 ** min(count_3, 3))
+        product *= (2 ** min(count_2, 4))
+    else:
+        # Normal calculation with standard overflow limits
+        product *= (10 ** min(count_10, 2))
+        product *= (4 ** min(count_4, 3))
+        product *= (3 ** min(count_3, 3))
+        product *= (2 ** min(count_2, 4))
+    
+    # Check if combo is not in proper descending order (indicates overflow)
+    expected_order = [10]*count_10 + [4]*count_4 + [3]*count_3 + [2]*count_2
+    if combo != expected_order and not has_overflow:
+        has_overflow = True
+    
+    return product, has_overflow
 
 def find_best_groups(target, products):
     """
     Find the best way to sum to target using products
-    Returns: (groups, total_spaces_for_numbers, has_overflow) or None
+    Returns: (groups, total_spaces_for_numbers, has_any_overflow) or None
     """
     if target == 0:
         return [], 0, False
@@ -89,7 +172,6 @@ def find_best_groups(target, products):
             
             # Try each combo for this product
             for combo, overflow_count in combo_list:
-                # Calculate spaces: regular numbers + overflow (1 space each)
                 new_spaces = prev_spaces + len(combo)
                 
                 if new_spaces < best_spaces:
@@ -107,11 +189,10 @@ def calculate_spaces(main_groups, outside_multiplier, outside_addition, skip_plu
     """
     Calculate total spaces used:
     - Each number from set = 1 space
-    - Overflow numbers = 1 space each
-    - Each + between groups = 1 space
-    - +1 at end = 1 space (just the +, the 1 doesn't count) - unless skipped due to overflow
+    - Each (trigger) between groups = 1 space
+    - +1 at end = 1 space (just the +) - unless skipped due to overflow
     - Outside multiplier = its value in spaces
-    - "eye" = 1 space (if iteration canceling wasn't used)
+    - (eye) = 1 space (if iteration canceling wasn't used)
     - Outside addition = its value in spaces
     """
     spaces = 0
@@ -120,18 +201,18 @@ def calculate_spaces(main_groups, outside_multiplier, outside_addition, skip_plu
     for combo, overflow in main_groups:
         spaces += len(combo)
     
-    # Count + signs between groups
+    # Count (trigger)s between groups
     if len(main_groups) > 1:
         spaces += len(main_groups) - 1
     
-    # Add cost of +1 if not skipped (just the + sign, not the 1)
+    # Add cost of +1 if not skipped (just the + sign)
     if not skip_plus_one:
         spaces += 1
     
     # Outside multiplier
     spaces += outside_multiplier
     
-    # "eye" space (if iteration canceling wasn't used)
+    # (eye) space (if iteration canceling wasn't used)
     if not skip_plus_one:
         spaces += 1
     
@@ -143,12 +224,7 @@ def calculate_spaces(main_groups, outside_multiplier, outside_addition, skip_plu
 def find_best_decomposition(target):
     """
     Find the best decomposition optimizing for minimum spaces
-    Format: ((groups) + 1) * outside_multiplier + outside_addition
-    Or: ((groups)) * outside_multiplier + outside_addition (if single group with overflow)
     """
-
-    start_time = time.time()
-
     products = generate_all_products()
     
     best_result = None
@@ -164,12 +240,10 @@ def find_best_decomposition(target):
             quotient = base // outside_mult
             
             # Case 1: Single group with overflow (no +1 needed)
-            # target = ((product)) * outside_mult + outside_add
             inner_target_no_plus = quotient
             
             if inner_target_no_plus >= 0 and inner_target_no_plus in products:
                 for combo, overflow_count in products[inner_target_no_plus]:
-                    # Only valid if single group with overflow
                     if overflow_count > 0:
                         main_groups = [(combo, overflow_count)]
                         spaces = calculate_spaces(main_groups, outside_mult, outside_add, True)
@@ -191,18 +265,14 @@ def find_best_decomposition(target):
                     if spaces < best_spaces:
                         best_spaces = spaces
                         best_result = (main_groups, outside_mult, outside_add, False)
-
-    end_time = time.time()
-    print(f"Time taken for decomposition: {end_time - start_time} seconds")
-
+    
     return best_result, best_spaces if best_result else (None, None)
 
 def format_output(main_groups, outside_multiplier, outside_addition, skip_plus_one):
-
-    
     """Format the result as a string"""
     group_strs = []
     for combo, overflow in main_groups:
+        # Numbers should already be in descending order from generation
         group_str = "*".join(map(str, combo))
         group_strs.append(f"({group_str})")
     
@@ -214,20 +284,20 @@ def format_output(main_groups, outside_multiplier, outside_addition, skip_plus_o
         if len(group_strs) > 0:
             inner = "(trigger)".join(group_strs) + "(trigger)(plus one free cast of modifier)"
         else:
-            inner = "(plus one free cast of modifiers)"
+            inner = "(plus one free cast of modifier)"
     
     result = f"((({inner})))"
     
     # Add outside multiplier info
-    result += f" * (number of modifiers: {outside_multiplier})"
+    result += f" * (number of modifiers:{outside_multiplier})"
     
-    # "eye" appears if iteration canceling wasn't used
+    # (eye) appears if iteration canceling wasn't used
     if not skip_plus_one:
         result += " (eye)"
     
     # Add outside addition if present
     if outside_addition > 0:
-        result += f" (extra outside multipliers: {outside_addition})"
+        result += f" (extra outside multipliers (if exist):{outside_addition})"
     
     return result
 
@@ -259,20 +329,4 @@ if result:
     main_groups, outside_mult, outside_add, skip_plus_one = result
     output = format_output(main_groups, outside_mult, outside_add, skip_plus_one)
     print(f"517: {output}")
-    print(f"Total spaces used: {spaces}")
-
-print("\nTest with 2:")
-result, spaces = find_best_decomposition(2)
-if result:
-    main_groups, outside_mult, outside_add, skip_plus_one = result
-    output = format_output(main_groups, outside_mult, outside_add, skip_plus_one)
-    print(f"2: {output}")
-    print(f"Total spaces used: {spaces}")
-
-print("\nTest with 8:")
-result, spaces = find_best_decomposition(8)
-if result:
-    main_groups, outside_mult, outside_add, skip_plus_one = result
-    output = format_output(main_groups, outside_mult, outside_add, skip_plus_one)
-    print(f"8: {output}")
     print(f"Total spaces used: {spaces}")
