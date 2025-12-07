@@ -214,7 +214,7 @@ def format_output(main_groups, outside_multiplier, outside_addition, skip_plus_o
         if len(group_strs) > 0:
             inner = "(trigger)".join(group_strs) + "(trigger)(plus one free cast of modifier)"
         else:
-            inner = "(plus one free cast of modifier)"
+            inner = "(plus one free cast of modifiers)"
     
     result = f"((({inner})))"
     
